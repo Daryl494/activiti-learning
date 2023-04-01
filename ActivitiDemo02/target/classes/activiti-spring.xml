@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/tx
+       http://www.springframework.org/schema/tx/spring-tx.xsd
+       http://www.springframework.org/schema/aop
+       http://www.springframework.org/schema/aop/spring-aop.xsd">
+    <!--数据源-->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="com.mysql.cj.jdbc.Driver"/>
+        <property name="url" value="jdbc:mysql://localhost:3306/activiti2?serverTimezone=Asia/Shanghai&amp;characterEncoding=utf8&amp;useUnicode=true&amp;nullCatalogMeansCurrent=true"/>
+        <property name="username" value="root"/>
+        <property name="password" value="123456"/>
+        <property name="maxActive" value="3"/>
+        <property name="maxIdle" value="1"/>
+    </bean>
+
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+    <!--引擎配置， 之前是Standalone...， 现在和Spring整合需要SpringProcessEngineConfiguration-->
+    <bean id="processEngineConfiguration" class="org.activiti.spring.SpringProcessEngineConfiguration">
+        <!--数据源-->
+        <property name="dataSource" ref="dataSource"/>
+        <!--使用spring事务管理器-->
+        <property name="transactionManager" ref="transactionManager"/>
+        <!--
+        数据库策略：
+            false： 默认值，activiti在启动时，会对比数据库表中保存的版本，如果没有表或者版本不一致，将会抛出异常。（生产环境常用）
+            true:  activiti会对数据库中所有表进行更新操作。如果表不存在，则自动创建(开发时常用)
+            create_drop: 在activiti启动时创建表，在关闭时删除表（必须手动关闭引擎才能删除表），（单元测试常用）
+            drop_create: 在activiti启动时删除原来的旧表，然后再创建新表（不需要手动关闭引擎）
+        -->
+        <property name="databaseSchemaUpdate" value="true"/>
+    </bean>
+
+    <!--流程引擎-->
+    <bean id="processEngine" class="org.activiti.spring.ProcessEngineFactoryBean">
+        <property name="processEngineConfiguration" ref="processEngineConfiguration"/>
+    </bean>
+    <!--资源服务service-->
+    <bean id="repositoryService" factory-bean="processEngine" factory-method="getRepositoryService"/>
+    <!--流程运行service-->
+    <bean id="runtimeService" factory-bean="processEngine" factory-method="getRuntimeService"/>
+    <!--任务管理service-->
+    <bean id="taskService" factory-bean="processEngine" factory-method="getTaskService"/>
+    <!--历史管理service-->
+    <bean id="historyService" factory-bean="processEngine" factory-method="getHistoryService"/>
+
+    <!--通知-->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <tx:method name="save*" propagation="REQUIRED"/>
+            <tx:method name="insert*" propagation="REQUIRED"/>
+            <tx:method name="delete*" propagation="REQUIRED"/>
+            <tx:method name="update*" propagation="REQUIRED"/>
+            <tx:method name="find*" propagation="SUPPORTS" read-only="true"/>
+            <tx:method name="get*" propagation="SUPPORTS" read-only="true"/>
+        </tx:attributes>
+    </tx:advice>
+    <!--切面 根据项目修改切点配置-->
+<!--    <aop:config proxy-target-class="true">-->
+<!--        <aop:advisor advice-ref="txAdvice" pointcut="execution(*com.daryl.service.impl..(..))"/>-->
+<!--    </aop:config>-->
+</beans>
